@@ -16,3 +16,103 @@ See Documentation/00-INDEX for a list of what is contained in each file.
 Please read the Documentation/process/changes.rst file, as it contains the
 requirements for building and running the kernel, and information about
 the problems which may result by upgrading your kernel.
+
+# INSTRUCTIONS TO BUILD
+this kernel, in fact any oneplus 7/t/pro kernel, must be compiled with not only one gcc arm64 toolchain but rather also an arm32 and clang toolchain.
+please do the following commands:
+# i know the names are intimidating but just bare with me.
+$ mkdir ~/.toolchains
+$ touch ~/.path
+
+NOTE: please add --depth=1 or you will end up downloading a 20GB toolchain lol. we use .toolchain and .path to keep the directories hidden so to avoid clutering our file system
+
+$ git clone --depth=1 https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 -b android14-release ~/.toolchains/clang
+$ git clone --depth=1 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 -b android-14.0.0_r0.91 ~/.toolchains/aarch64-linux-android-4.9 
+$ git clone --depth=1 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9 -b android-14.0.0_r0.108 ~/.toolchains/arm-linux-androideabi-4.9
+
+now you can delete all the files from .toolchains/clang/ EXCEPT for clang-r487747c/ this is the toolchain wee will use, it contains all the tools and libraries.
+now you download the kernel source, please CLONE DONT DOWNLOAD this repository
+
+$ git clone https://github.com/code-daemon43/quantum-pulse-kernel_oneplus_sm8150.git
+
+*now we are "supposed" to set all the environment variables but i built a script to do it for us. please copy it and do:
+
+$ nano ~/.path
+copy it. and do ctrl shift v in the terminal.
+ctrl o to save
+ctrl x to exit
+now run:
+$ source ~/.path
+congrats! your toolchain bins are now in your path, cross_compile cross_compile_arm32, CC HOSTCC CLANG_TRIPLE and everything else is all set for you.
+here is the script to copy: (keep in mind this script only applies to the sm8150 oneplus kernel.
+**
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#!bin/bash
+
+# ARCH
+export ARCH=arm64
+# Add toolchain paths to environment
+# GCC Arm64
+export PATH=~/.toolchains/aarch64-linux-android/bin:$PATH
+# GCC Arm32
+export PATH=~/.toolchains/arm-linux-androideabi/bin:$PATH 
+# Clang -latest
+export PATH=~/.toolchains/clang/clang-r487747c/bin:$PATH
+# CLANG LIBRARY
+export LD_LIBRARY_PATH=~/.toolchains/clang/clang-r487747c/lib:$LD_LIBRARY_PATH
+# host compiler
+export HOSTCC=clang
+# clang triple
+export CLANG_TRIPLE=aarch64-linux-gnu
+# CC !!!!MUST ALSO BE PASSED TO MAKE!!!!
+export CC=clang
+# cross_compile
+export CROSS_COMPILE=~/.toolchains/aarch64-linux-android/bin/aarch64-linux-android-
+# cross_compile_arm32 !!!UNCOMMENT ONLY IF NEEDED
+export CROSS_COMPILE_ARM32=~/.toolchains/arm-linux-androideabi/bin/arm-linux-androideabi-
+# !!!! UNCOMMENT DEPENDING ON YOUR BUILD!!!!
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+now its time to build!!
+make sure your terminal is full screen or your "menuconfig" command will not work.
+$ cd quantum-pulse-kernel_oneplus_sm8150
+STEP 1: BUILD DEFCONFIG/CONFIGURATION FILE (for those curious check out all configs at /arch/arm64/configs and arch/arm64/configs/vendor
+we will use the derp_defconfig as i have edited it and it is the most customized one.
+$ mkdir output  (where our build will happen, the kernel will be at output/arch/arm64/boot/* youll have Image, Image.gz (compressed) (and i like) Image.gz-dtb (because it contains device blobs)
+$ make O=output ARCH=arm64 CROSS_COMPILE=$CROSS_COMPILE CC=clang vendor/derp_defconfig
+you may get warnings from the above but that is normal depending on the warning.
+
+STEP 2: CONFIGURE
+
+$ make O=output ARCH=arm64 CROSS_COMPILE=$CROSS_COMPILE CC=clang menuconfig
+a menu interface will open, ill give you the basics: navigate to boot menu/features and use arrows to go to "build concoted dtb" and hit space then left key on exit press enter.
+go down to kernel hacking and hit kernel debugging.
+most other configs are set but there is loads of resources on menuconfig configurations
+these are two basic features i dont have time to add more to the read me at the moment, they add debugging and will also output a Image.gz with device tree blobs -dt which is more compatable with most devices.
+
+STEP 3: BUILD!
+you may want to check how many cores you have the more you have the faster you will build. it can take anywhere from 8 to 20 minutes to 30 on a laptop lol
+to do this type
+$ nproc
+whatever the output is that is the number to put at the end of the next command. or just simply use -j$(nproc --all) to use the max amount without freezing up your system
+run the build:
+$ make O=output ARCH=arm64 CROSS_COMPILE=$CROSS_COMPILE CC=clang HOSTCC=clang CROSS_COMPILE_ARM32=$CROSS_COMPILE_ARM32 CLANG_TRIPLE=aarch64-linux-gnu AR=llvm-ar STRIP=llvm-strip OBJDUMP=llvm-objdump OBJCOPY=llvm-objcopy -j$(nproc --all)
+in the previous command we specify the toolchains the compiler and as many tools from clang (certain tools require patches to use with this command so stick with these
+we specify AR, STRIP, OBJDUMP, OBJCOPY... 
+now we wait for the build to finish
+when it is done your kernels (there will be 3 formats) will be at output/arch/arm64/boot
+you will notice warnings during compilation, like -wunused-variable amongst others, im in the process of fixing them in this kernel but dont worry they are just warnings. not errors. the build will still work
+as always back up your boot.img or kernel before flashing a new one. to create an any kernel zip, you must use one with arm64 tools, so the regular one may not work, here is a link to an arm64 version i made:
+$ git clone https://github.com/code-daemon43/anykernel64.git
+just ad Image.gz-dtb and do:
+zip -r -9 my-kernel.zip anykernel.sh  LICENSE   modules  tools Image.gz-dtb  META-INF  patch    ramdisk
+to backup kernel /boot you must be rooted do:
+$ adb shell
+$ su
+$ getprop ro.boot.slot_suffix
+this will return _a or _b that is your target
+$ dd if=/dev/block/by-name/boot_a/b (a/b depending on above command) of=/sdcard/boot.img
+$ exit && exit
+$ adb pull /sdcard/boot.img
+now you have your boot, if you want to take it further use the binary i built MkKernel to extract your kernel easily with a nice menu
+here is the xda download link: https://xdaforums.com/t/new-tool-mkkernel-extract-boot-and-recovery-images-with-ease.4686349/
+
