@@ -77,6 +77,8 @@ make sure your terminal is full screen or your "menuconfig" command will not wor
 $ cd quantum-pulse-kernel_oneplus_sm8150
 STEP 1: BUILD DEFCONFIG/CONFIGURATION FILE (for those curious check out all configs at /arch/arm64/configs and arch/arm64/configs/vendor
 we will use the derp_defconfig as i have edited it and it is the most customized one.
+TO ADD KSU please READ:How to integrate KernelSU for non-GKI kernels? top of page
+:https://kernelsu.org/guide/how-to-integrate-for-non-gki.html
 $ mkdir output  (where our build will happen, the kernel will be at output/arch/arm64/boot/* youll have Image, Image.gz (compressed) (and i like) Image.gz-dtb (because it contains device blobs)
 $ make O=output ARCH=arm64 CROSS_COMPILE=$CROSS_COMPILE CC=clang vendor/derp_defconfig
 you may get warnings from the above but that is normal depending on the warning.
