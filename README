@@ -79,12 +79,22 @@ STEP 1: BUILD DEFCONFIG/CONFIGURATION FILE (for those curious check out all conf
 we will use the derp_defconfig as i have edited it and it is the most customized one.
 TO ADD KSU please READ:How to integrate KernelSU for non-GKI kernels? top of page
 :https://kernelsu.org/guide/how-to-integrate-for-non-gki.html
+to add kernel su for non-gki kernel. AKA a -common kernel:
+# TO ADD KSU: PLEASE FOLLOW ALL LINES BEGINNING WITH **KSU-ONLY**
+run the following command:
+**KSU-ONLY: $ curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s v0.9.5
 $ mkdir output  (where our build will happen, the kernel will be at output/arch/arm64/boot/* youll have Image, Image.gz (compressed) (and i like) Image.gz-dtb (because it contains device blobs)
-$ make O=output ARCH=arm64 CROSS_COMPILE=$CROSS_COMPILE CC=clang vendor/derp_defconfig
-you may get warnings from the above but that is normal depending on the warning.
+$ make O=output ARCH=arm64 CROSS_COMPILE=$CROSS_COMPILE CC=clang vendor/quantum-perf_defconfig
+you should not edit this config file till next step and it should go without warnings or errors if you followed. occaisionaly you may get warnings from the above (rarely on this kernel becuase i patched it) but that is normal so long as its not "ERROR" in red.
 
 STEP 2: CONFIGURE
-
+**KSU-ONLY**: you will have to make sure three configs are located in "/output/.config" the config you built in the previous command.
+**KSU-ONLY** 1. CONFIG_KPROBES=y
+**KSU-ONLY** 2. CONFIG_HAVE_KPROBES=y
+**KSU-ONLY** 3. CONFIG_KPROBE_EVENTS=y
+**KSU-ONLY** to do so run: $ grep -n "CONFIG_KPROBES=" output/.config || then run $ grep -n "CONFIG_HAVE_KPROBES=" output/.config || then $ grep -n "CONFIG_KPROBE_EVENTS="
+**KSU-ONLY** if you get any output that means it was found and it will state the line number. if one is not found do $ nano output/.config  add it in an empty space make sure to do ctrl w first and double check it is not set because you cant have duplicates.
+**KSU-ONLY** now we build, if it boot loops we must add more patches to fix kprobe which is a long story for another time
 $ make O=output ARCH=arm64 CROSS_COMPILE=$CROSS_COMPILE CC=clang menuconfig
 a menu interface will open, ill give you the basics: navigate to boot menu/features and use arrows to go to "build concoted dtb" and hit space then left key on exit press enter.
 go down to kernel hacking and hit kernel debugging.
