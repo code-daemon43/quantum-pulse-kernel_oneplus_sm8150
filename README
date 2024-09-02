@@ -106,6 +106,9 @@ you will notice warnings during compilation, like -wunused-variable amongst othe
 as always back up your boot.img or kernel before flashing a new one. to create an any kernel zip, you must use one with arm64 tools, so the regular one may not work, here is a link to an arm64 version i made:
 $ git clone https://github.com/code-daemon43/anykernel64.git
 just ad Image.gz-dtb and do:
+edit anykernel.sh and make sure boot partition is at /dev/block/by-name/
+do.device.check=0
+kernel string= your kernel name
 zip -r -9 my-kernel.zip anykernel.sh  LICENSE   modules  tools Image.gz-dtb  META-INF  patch    ramdisk
 to backup kernel /boot you must be rooted do:
 $ adb shell
